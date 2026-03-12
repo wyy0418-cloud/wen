@@ -58,13 +58,13 @@ const StepNavigation = ({
   nextDisabled?: boolean,
   className?: string
 }) => (
-  <div className={cn("flex justify-between items-center py-4 border-y border-black/5 my-6", className)}>
+  <div className={cn("flex justify-between items-center py-2 border-y border-black/5 my-4", className)}>
     {step > 1 ? (
-      <Button variant="secondary" onClick={() => onStepClick(step - 1)} icon={ArrowLeft} className="px-4 py-2 text-sm">上一步</Button>
+      <Button variant="secondary" onClick={() => onStepClick(step - 1)} icon={ArrowLeft} className="px-3 py-1.5 text-xs">上一步</Button>
     ) : <div />}
-    <div className="text-xs font-bold uppercase tracking-widest text-black/20">步骤 {step} / 6</div>
+    <div className="text-[10px] font-bold uppercase tracking-widest text-black/20">步骤 {step} / 6</div>
     {step < 6 ? (
-      <Button disabled={nextDisabled} onClick={() => onStepClick(step + 1)} icon={ArrowRight} className="px-4 py-2 text-sm">下一步</Button>
+      <Button disabled={nextDisabled} onClick={() => onStepClick(step + 1)} icon={ArrowRight} className="px-3 py-1.5 text-xs">下一步</Button>
     ) : <div />}
   </div>
 );
@@ -142,6 +142,29 @@ export default function App() {
   const [previewMode, setPreviewMode] = useState<'summary' | 'attendance' | 'seating'>('summary');
   const [activeGroupIdx, setActiveGroupIdx] = useState(0);
   const [activeAssignIdx, setActiveAssignIdx] = useState(0);
+  const [manualStudent, setManualStudent] = useState({ id: '', name: '', className: '' });
+  const [showManualStudent, setShowManualStudent] = useState(false);
+
+  const prevStudentsRef = React.useRef(students);
+  useEffect(() => {
+    if (prevStudentsRef.current !== students && groups.length > 0) {
+      const updatedGroups = groups.map(group => {
+        const groupStudents = students.filter(s => group.classNames.includes(s.className)).sort((a, b) => {
+          const classCmp = a.className.localeCompare(b.className);
+          if (classCmp !== 0) return classCmp;
+          return a.id.localeCompare(b.id);
+        });
+        return {
+          ...group,
+          totalStudents: groupStudents.length,
+          students: groupStudents,
+          invalidClasses: group.classNames.filter(cn => !students.some(s => s.className === cn))
+        };
+      });
+      setGroups(updatedGroups);
+      prevStudentsRef.current = students;
+    }
+  }, [students, groups, setGroups]);
 
   useEffect(() => {
     if (step === 6) {
@@ -467,6 +490,16 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  const handleManualAddStudent = () => {
+    if (!manualStudent.id || !manualStudent.name || !manualStudent.className) {
+      alert('请填写完整信息！');
+      return;
+    }
+    setStudents([...students, { ...manualStudent, gender: '', major: '' }]);
+    setManualStudent({ id: '', name: '', className: '' });
+    setShowManualStudent(false);
+  };
+
   // --- Render Steps ---
   const renderStep1 = () => (
     <div className="max-w-4xl mx-auto py-12 px-6">
@@ -478,10 +511,6 @@ export default function App() {
             <h1 className="text-2xl font-bold tracking-tighter">实验室排课系统</h1>
           </div>
           <p className="text-black/30 text-[10px] font-bold uppercase tracking-widest">Laboratory Scheduling System</p>
-          <div className="mt-12 pt-8 border-t border-black/5 w-full max-w-md mx-auto text-center">
-            <p className="text-[10px] text-black/20 font-bold uppercase tracking-widest mb-2">© 2026 Lab Scheduler · 极简高效的实验室排课方案</p>
-            <p className="text-[9px] text-black/10 font-medium">Designed for modern laboratory management with precision and ease.</p>
-          </div>
       </div>
 
       <StepNavigation step={1} onStepClick={handleStepClick} nextDisabled={students.length === 0} />
@@ -491,13 +520,48 @@ export default function App() {
           <h2 className="text-3xl font-medium tracking-tight mb-2">上传名单</h2>
           <p className="text-black/40">上传学生名单 Excel 文件，这是系统运行的基础。</p>
         </div>
-        {students.length > 0 && (
-          <Button variant="danger" onClick={() => setStudents([])} icon={Trash2} className="px-4 py-2 text-sm">
-            清空名单
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowManualStudent(true)} icon={Plus} className="px-4 py-2 text-sm">
+            手动添加
           </Button>
-        )}
+          {students.length > 0 && (
+            <Button variant="danger" onClick={() => setStudents([])} icon={Trash2} className="px-4 py-2 text-sm">
+              清空名单
+            </Button>
+          )}
+        </div>
       </div>
       
+      {showManualStudent && (
+        <Card className="p-6 mb-6 bg-emerald-50/50 border-emerald-100">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-800 mb-4">手动添加学生</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <input 
+              type="text" placeholder="学号" 
+              className="p-3 rounded-xl border border-emerald-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              value={manualStudent.id}
+              onChange={e => setManualStudent({...manualStudent, id: e.target.value})}
+            />
+            <input 
+              type="text" placeholder="姓名" 
+              className="p-3 rounded-xl border border-emerald-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              value={manualStudent.name}
+              onChange={e => setManualStudent({...manualStudent, name: e.target.value})}
+            />
+            <input 
+              type="text" placeholder="班级" 
+              className="p-3 rounded-xl border border-emerald-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              value={manualStudent.className}
+              onChange={e => setManualStudent({...manualStudent, className: e.target.value})}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowManualStudent(false)} className="px-4 py-2 text-xs">取消</Button>
+            <Button onClick={handleManualAddStudent} className="px-4 py-2 text-xs">确认添加</Button>
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 gap-6">
         <UploadCard 
           title="学生名单 (必填)" 
@@ -537,12 +601,17 @@ export default function App() {
       </div>
       
       <StepNavigation step={1} onStepClick={handleStepClick} nextDisabled={students.length === 0} className="mt-12" />
+      
+      <div className="mt-12 pt-8 border-t border-black/5 w-full max-w-md mx-auto text-center">
+        <p className="text-[10px] text-black/20 font-bold uppercase tracking-widest mb-2">© 2026 Lab Scheduler · 极简高效的实验室排课方案</p>
+        <p className="text-[9px] text-black/10 font-medium">Designed for modern laboratory management with precision and ease.</p>
+      </div>
     </div>
   );
 
   const renderStep2 = () => (
     <div className="max-w-4xl mx-auto py-12 px-6">
-      <StepNavigation step={2} onStepClick={handleStepClick} />
+      <StepNavigation step={2} onStepClick={handleStepClick} className="mt-0 mb-8" />
       <div className="mb-12 flex justify-between items-end">
         <div>
           <h2 className="text-4xl font-medium tracking-tight mb-4">教师管理</h2>
@@ -599,7 +668,7 @@ export default function App() {
 
   const renderStep3 = () => (
     <div className="max-w-4xl mx-auto py-12 px-6">
-      <StepNavigation step={3} onStepClick={handleStepClick} nextDisabled={groups.length === 0} />
+      <StepNavigation step={3} onStepClick={handleStepClick} nextDisabled={groups.length === 0} className="mt-0 mb-8" />
       <div className="mb-12 flex justify-between items-end">
         <div>
           <h2 className="text-4xl font-medium tracking-tight mb-4">合班管理</h2>
@@ -626,7 +695,6 @@ export default function App() {
           
           <div className="mb-6 flex items-center justify-between">
             <h3 className="text-xl font-medium">已创建课程 ({groups.length})</h3>
-            <Button variant="outline" onClick={handleManualAddGroup} icon={Plus}>手动新增</Button>
           </div>
 
           <div className="space-y-3">
@@ -680,7 +748,7 @@ export default function App() {
 
   const renderStep4 = () => (
     <div className="max-w-5xl mx-auto py-12 px-6">
-      <StepNavigation step={4} onStepClick={handleStepClick} nextDisabled={groups.some(g => g.classNames.length === 0 || studentConflicts.length > 0)} />
+      <StepNavigation step={4} onStepClick={handleStepClick} nextDisabled={groups.some(g => g.classNames.length === 0 || studentConflicts.length > 0)} className="mt-0 mb-8" />
       <div className="mb-12">
         <h2 className="text-4xl font-medium tracking-tight mb-4">排课设置</h2>
         <p className="text-black/40 text-lg">为每个课程选择班级并设置上课时间。</p>
@@ -718,7 +786,7 @@ export default function App() {
 
   const renderStep5 = () => (
     <div className="max-w-5xl mx-auto py-12 px-6">
-      <StepNavigation step={5} onStepClick={handleStepClick} nextDisabled={!isAllTeachersAssigned} />
+      <StepNavigation step={5} onStepClick={handleStepClick} nextDisabled={!isAllTeachersAssigned} className="mt-0 mb-8" />
       <div className="mb-12">
         <h2 className="text-4xl font-medium tracking-tight mb-4">实验室分配</h2>
         <p className="text-black/40 text-lg">系统已根据您的设置拆分实验室，请为每个实验室指定带教教师。</p>
@@ -751,7 +819,7 @@ export default function App() {
 
     return (
       <div className="max-w-6xl mx-auto py-12 px-6 text-center">
-        <StepNavigation step={6} onStepClick={handleStepClick} />
+        <StepNavigation step={6} onStepClick={handleStepClick} className="mt-0 mb-8" />
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -764,6 +832,13 @@ export default function App() {
           <p className="text-black/40 text-xl max-w-lg mx-auto leading-relaxed">
             所有课程已成功分配。您可以导出完整的 Excel 工作簿，或在下方预览详细方案。
           </p>
+          
+          {groups.some(g => g.totalStudents === 0) && (
+            <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl max-w-md mx-auto flex items-center gap-3 text-red-600 text-sm">
+              <AlertTriangle size={20} />
+              <p className="text-left font-medium">警告：发现部分课程组学生人数为 0，请检查班级设置或学生名单。</p>
+            </div>
+          )}
         </motion.div>
         
         <div className="flex flex-col items-center gap-12">
@@ -1044,7 +1119,7 @@ export default function App() {
             <Save size={18} />
             <div className="absolute left-full ml-4 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap z-[100] translate-x-[-10px] group-hover:translate-x-0 shadow-xl">
               <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-emerald-600 rotate-45" />
-              保存进度
+              保存进度 (含名单、教师、合班)
             </div>
           </button>
 
@@ -1281,11 +1356,17 @@ const TeachingGroupCard = ({ group, allClassNames, studentsPool, coursePool, onU
               </Button>
               {group.classNames.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {group.classNames.map((cn: string) => (
-                    <span key={cn} className="px-3 py-1 bg-black/5 rounded-full text-xs font-medium">
-                      {cn} ({studentsPool.filter((s: any) => s.className === cn).length}人)
-                    </span>
-                  ))}
+                  {group.classNames.map((className: string) => {
+                    const count = studentsPool.filter((s: any) => s.className === className).length;
+                    return (
+                      <span key={className} className={cn(
+                        "px-3 py-1 rounded-full text-xs font-medium",
+                        count === 0 ? "bg-red-50 text-red-600 border border-red-100" : "bg-black/5 text-black"
+                      )}>
+                        {className} ({count}人)
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1453,7 +1534,13 @@ const TeachingGroupCard = ({ group, allClassNames, studentsPool, coursePool, onU
             if (classCmp !== 0) return classCmp;
             return a.id.localeCompare(b.id);
           });
-          onUpdate({ classNames: selected, totalStudents: groupStudents.length, students: groupStudents });
+          const newNumLabs = Math.max(1, Math.ceil(groupStudents.length / 32));
+          onUpdate({ 
+            classNames: selected, 
+            totalStudents: groupStudents.length, 
+            students: groupStudents,
+            splitConfig: { ...group.splitConfig, numLabs: newNumLabs }
+          });
         }}
       />
     </Card>
@@ -1497,7 +1584,11 @@ const TeacherAssignCard = ({ group, teachers, onUpdate, checkConflict }: any) =>
                   }}
                 >
                   <option value="">选择教师...</option>
-                  {teachers.map((t: any) => <option key={t.name} value={t.name}>{t.name}</option>)}
+                  {teachers.map((t: any) => {
+                    const isAlreadySelected = group.assignments.some((a: any, i: number) => i !== idx && a.teacherName === t.name);
+                    if (isAlreadySelected) return null;
+                    return <option key={t.name} value={t.name}>{t.name}</option>;
+                  })}
                 </select>
 
                 {conflict && (

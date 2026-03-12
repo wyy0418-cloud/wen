@@ -271,9 +271,14 @@ export const AIChat = ({ onClose }: { onClose: () => void }) => {
             <div className="p-6 space-y-4">
               <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-start gap-3">
                 <AlertCircle className="text-emerald-500 shrink-0 mt-0.5" size={16} />
-                <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  本助手采用标准 OpenAI 接口协议，您可以接入 ChatGPT、Claude、DeepSeek 或自建模型。
-                </p>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-emerald-800 leading-relaxed font-bold">
+                    提示：请使用临时 API Key 进行测试。
+                  </p>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    本助手采用标准 OpenAI 接口协议，您可以接入 ChatGPT、Claude、DeepSeek 或自建模型。
+                  </p>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
