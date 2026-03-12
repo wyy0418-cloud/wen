@@ -369,7 +369,7 @@ export default function App() {
   };
 
   // --- Step 5: Split Logic ---
-  const calculateAssignments = (group: CombinedClassGroup): LabAssignment[] => {
+  const calculateAssignments = useCallback((group: CombinedClassGroup): LabAssignment[] => {
     const assignments: LabAssignment[] = [];
     let currentIdx = 0;
     for (let i = 0; i < group.splitConfig.numLabs; i++) {
@@ -389,7 +389,34 @@ export default function App() {
       currentIdx += slice.length;
     }
     return assignments;
-  };
+  }, []);
+
+  // Keep assignments in sync with splitConfig and students
+  useEffect(() => {
+    const needsUpdate = groups.some(g => 
+      g.assignments.length > 0 && (
+        g.assignments.length !== g.splitConfig.numLabs || 
+        g.assignments.reduce((sum, a) => sum + a.studentRange.count, 0) !== g.totalStudents
+      )
+    );
+
+    if (needsUpdate) {
+      setGroups(groups.map(g => {
+        if (g.assignments.length > 0) {
+          const newAssignments = calculateAssignments(g);
+          // Try to preserve teacher names if lab names match
+          return {
+            ...g,
+            assignments: newAssignments.map(na => {
+              const old = g.assignments.find(oa => oa.labName === na.labName);
+              return old ? { ...na, teacherName: old.teacherName } : na;
+            })
+          };
+        }
+        return g;
+      }));
+    }
+  }, [groups, setGroups, calculateAssignments]);
 
   const proceedToStep5 = () => {
     const invalid = groups.some(g => (g.splitConfig.numLabs - 1) * g.splitConfig.baseCapacity >= g.totalStudents && g.splitConfig.numLabs > 1);
@@ -809,13 +836,21 @@ export default function App() {
   );
 
   const renderStep6 = () => {
-    const activeGroup = groups[activeGroupIdx];
-    const activeAssign = activeGroup?.assignments[activeAssignIdx];
-
-    if (!activeGroup && groups.length > 0) {
-      setActiveGroupIdx(0);
-      return null;
+    if (groups.length === 0) {
+      return (
+        <div className="max-w-6xl mx-auto py-24 px-6 text-center">
+          <div className="w-20 h-20 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-6 text-black/20">
+            <Calendar size={40} />
+          </div>
+          <h3 className="text-2xl font-medium text-black/40">暂无排课数据</h3>
+          <p className="text-black/20 mt-2">请先完成前面的排课步骤。</p>
+          <Button onClick={() => setStep(1)} className="mt-8" variant="secondary">返回第一步</Button>
+        </div>
+      );
     }
+
+    const activeGroup = groups[activeGroupIdx] || groups[0];
+    const activeAssign = activeGroup?.assignments[activeAssignIdx] || activeGroup?.assignments[0];
 
     return (
       <div className="max-w-6xl mx-auto py-12 px-6 text-center">
@@ -945,7 +980,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {previewMode === 'attendance' && activeAssign && (
+                {previewMode === 'attendance' && activeGroup && activeAssign && (
                   <Card className="p-8 text-left max-w-5xl mx-auto overflow-x-auto">
                     <div className="border-b border-black/5 pb-6 mb-6">
                       <h4 className="text-2xl font-bold mb-2">{activeGroup.courseName} - {activeAssign.labName} 成绩单</h4>
@@ -996,7 +1031,7 @@ export default function App() {
                   </Card>
                 )}
 
-                {previewMode === 'seating' && activeAssign && (
+                {previewMode === 'seating' && activeGroup && activeAssign && (
                   <div className="max-w-5xl mx-auto">
                     <Card className="p-12">
                       <div className="text-center mb-8">

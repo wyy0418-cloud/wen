@@ -124,16 +124,18 @@ export const AIChat = ({ onClose }: { onClose: () => void }) => {
 - 教师总数: ${teachers.length}
 - 合班组数: ${groups.length}
 - 课程列表: ${courses.join(', ')}
+- 当前排课详情:
+${groups.map(g => `  * 课程: ${g.courseName}, 班级: ${g.classNames.join('+')}, 实验室数: ${g.splitConfig.numLabs}, 教师: ${g.assignments.map(a => `${a.labName}(${a.teacherName || '未分配'})`).join(', ')}`).join('\n')}
 
 你可以通过返回特定格式的 JSON 来调用函数修改系统设置。
 如果用户上传了文件（Excel, PDF, Word, 图片），请分析文件内容并根据用户要求进行操作。
 
 你可以执行的操作（请在回复中包含 JSON 代码块）：
-1. { "action": "update_teacher", "courseName": "...", "labName": "...", "teacherName": "..." }
-2. { "action": "set_course_teachers", "courseName": "...", "teacherName": "..." }
-3. { "action": "update_split", "courseName": "...", "numLabs": 2, "baseCapacity": 30 }
-4. { "action": "jump_to_step", "step": 1-6 }
-5. { "action": "batch_teachers", "teacherNames": ["...", "..."] }
+1. { "action": "update_teacher", "courseName": "...", "labName": "...", "teacherName": "..." } - 更新特定实验室的教师
+2. { "action": "set_course_teachers", "courseName": "...", "teacherName": "..." } - 为该课程的所有实验室设置同一位教师
+3. { "action": "update_split", "courseName": "...", "numLabs": 2, "baseCapacity": 30 } - 更新课程的拆分设置
+4. { "action": "jump_to_step", "step": 1-6 } - 跳转到特定步骤
+5. { "action": "batch_teachers", "teacherNames": ["...", "..."] } - 批量添加教师名单
 
 请根据用户的自然语言指令和上传的文件内容，决定是否需要执行操作。`;
 
@@ -273,7 +275,7 @@ export const AIChat = ({ onClose }: { onClose: () => void }) => {
                 <AlertCircle className="text-emerald-500 shrink-0 mt-0.5" size={16} />
                 <div className="space-y-1">
                   <p className="text-[11px] text-emerald-800 leading-relaxed font-bold">
-                    提示：请使用临时 API Key 进行测试。
+                    提示：请使用临时 API Key 进行排课，系统不保存任何 API Key。
                   </p>
                   <p className="text-[11px] text-emerald-800 leading-relaxed">
                     本助手采用标准 OpenAI 接口协议，您可以接入 ChatGPT、Claude、DeepSeek 或自建模型。
