@@ -358,6 +358,14 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
+  const generateId = () => {
+    try {
+      return crypto.randomUUID();
+    } catch (e) {
+      return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+  };
+
   const createGroupObject = (courseName: string, classNames: string[]): CombinedClassGroup => {
     const groupStudents = students.filter(s => classNames.includes(s.className)).sort((a, b) => {
       const classCmp = a.className.localeCompare(b.className);
@@ -370,7 +378,7 @@ export default function App() {
     const defaultLabs = Math.max(1, Math.ceil(total / defaultCapacity));
     
     return {
-      id: crypto.randomUUID(),
+      id: generateId(),
       courseName,
       classNames,
       totalStudents: total,
