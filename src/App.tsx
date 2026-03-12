@@ -117,6 +117,11 @@ const Button = ({
   );
 };
 
+const parsePeriod = (p: string) => {
+  const m = p.match(/(\d+)-(\d+)节/);
+  return m ? [Number(m[1]), Number(m[2])] : [0, 0];
+};
+
 export default function App() {
   const { 
     step, setStep, 
@@ -124,7 +129,8 @@ export default function App() {
     teachers, setTeachers, 
     groups, setGroups,
     courses, addCourse,
-    addGroup, updateGroup, removeGroup,
+    addGroup, batchAddGroups, updateGroup, removeGroup,
+    totalLabs, setTotalLabs,
     resetSystem, loadState
   } = useStore();
 
@@ -198,6 +204,10 @@ export default function App() {
         alert(`发现学生上课时间冲突，请先调整：\n${conflicts[0]}`);
         return;
       }
+      if (labConflicts.length > 0) {
+        alert(`发现实验室资源冲突，请先调整：\n${labConflicts[0]}`);
+        return;
+      }
       proceedToStep5();
       return;
     }
@@ -221,10 +231,6 @@ export default function App() {
         const dayOverlap = g1.time.weekday === g2.time.weekday;
         
         if (weeksOverlap && dayOverlap) {
-          const parsePeriod = (p: string) => {
-            const m = p.match(/(\d+)-(\d+)节/);
-            return m ? [Number(m[1]), Number(m[2])] : [0, 0];
-          };
           const [s1, e1] = parsePeriod(g1.time.period);
           const [s2, e2] = parsePeriod(g2.time.period);
           const periodOverlap = Math.max(s1, s2) <= Math.min(e1, e2);
@@ -246,6 +252,39 @@ export default function App() {
   }, [groups]);
 
   const studentConflicts = useMemo(() => checkStudentConflicts(), [checkStudentConflicts]);
+
+  const labConflicts = useMemo(() => {
+    const conflicts: string[] = [];
+    // Check for each week, day, and period
+    for (let w = 1; w <= 20; w++) { // Assuming max 20 weeks
+      for (let d = 1; d <= 7; d++) {
+        // Check each session
+        ['上午', '下午'].forEach(session => {
+          // Check each possible period (1-12)
+          for (let p = 1; p <= 12; p++) {
+            const overlappingGroups = groups.filter(g => {
+              const [start, end] = parsePeriod(g.time.period);
+              return g.time.startWeek <= w && g.time.endWeek >= w &&
+                     g.time.weekday === d &&
+                     g.time.session === session &&
+                     start <= p && end >= p;
+            });
+            
+            const totalUsed = overlappingGroups.reduce((sum, g) => sum + g.splitConfig.numLabs, 0);
+            if (totalUsed > totalLabs) {
+              const timeStr = `第${w}周 ${WEEKDAYS[d-1]} ${session}第${p}节`;
+              const courseNames = overlappingGroups.map(g => g.courseName).join('、');
+              const conflictMsg = `⚠️ 实验室超限：${timeStr} 实验室总需求为 ${totalUsed} (上限 ${totalLabs})。涉及课程：${courseNames}`;
+              if (!conflicts.includes(conflictMsg)) {
+                conflicts.push(conflictMsg);
+              }
+            }
+          }
+        });
+      }
+    }
+    return conflicts.slice(0, 5); // Limit to 5 messages to avoid UI clutter
+  }, [groups, totalLabs]);
 
   // --- Step 1: Data Ingestion ---
   const handleStudentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,10 +389,8 @@ export default function App() {
 
   const handleBatchAddGroup = () => {
     const names = batchGroupText.split('\n').map(n => n.trim()).filter(Boolean);
-    names.forEach(name => {
-      const newGroup = createGroupObject(name, []);
-      addGroup(newGroup);
-    });
+    const newGroups = names.map(name => createGroupObject(name, []));
+    batchAddGroups(newGroups);
     setBatchGroupText('');
   };
 
@@ -489,7 +526,8 @@ export default function App() {
       teachers: state.teachers,
       groups: state.groups,
       courses: state.courses,
-      version: '1.0',
+      totalLabs: state.totalLabs,
+      version: '1.1',
       timestamp: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -775,21 +813,50 @@ export default function App() {
 
   const renderStep4 = () => (
     <div className="max-w-5xl mx-auto py-12 px-6">
-      <StepNavigation step={4} onStepClick={handleStepClick} nextDisabled={groups.some(g => g.classNames.length === 0 || studentConflicts.length > 0)} className="mt-0 mb-8" />
-      <div className="mb-12">
-        <h2 className="text-4xl font-medium tracking-tight mb-4">排课设置</h2>
-        <p className="text-black/40 text-lg">为每个课程选择班级并设置上课时间。</p>
+      <StepNavigation step={4} onStepClick={handleStepClick} nextDisabled={groups.some(g => g.classNames.length === 0 || studentConflicts.length > 0 || labConflicts.length > 0)} className="mt-0 mb-8" />
+      <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h2 className="text-4xl font-medium tracking-tight mb-4">排课设置</h2>
+          <p className="text-black/40 text-lg">为每个课程选择班级并设置上课时间。</p>
+        </div>
+        <div className="bg-black/5 p-4 rounded-2xl flex items-center gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-black/30">实验室总数</span>
+            <input 
+              type="number" 
+              className="bg-transparent text-xl font-medium focus:outline-none w-20"
+              value={totalLabs}
+              onChange={(e) => setTotalLabs(parseInt(e.target.value) || 0)}
+            />
+          </div>
+          <LayoutGrid className="text-black/20" size={24} />
+        </div>
       </div>
 
-      {studentConflicts.length > 0 && (
-        <div className="mb-8 bg-red-50 border border-red-100 p-6 rounded-3xl flex items-start gap-4">
-          <AlertTriangle className="text-red-500 shrink-0 mt-1" />
-          <div>
-            <h4 className="font-bold text-red-800 mb-1">检测到学生时间冲突</h4>
-            <ul className="text-sm text-red-700 space-y-1">
-              {studentConflicts.map((c, i) => <li key={i}>{c}</li>)}
-            </ul>
-          </div>
+      {(studentConflicts.length > 0 || labConflicts.length > 0) && (
+        <div className="mb-8 space-y-4">
+          {studentConflicts.length > 0 && (
+            <div className="bg-red-50 border border-red-100 p-6 rounded-3xl flex items-start gap-4">
+              <AlertTriangle className="text-red-500 shrink-0 mt-1" />
+              <div>
+                <h4 className="font-bold text-red-800 mb-1">检测到学生时间冲突</h4>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {studentConflicts.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            </div>
+          )}
+          {labConflicts.length > 0 && (
+            <div className="bg-orange-50 border border-orange-100 p-6 rounded-3xl flex items-start gap-4">
+              <AlertTriangle className="text-orange-500 shrink-0 mt-1" />
+              <div>
+                <h4 className="font-bold text-orange-800 mb-1">检测到实验室资源冲突</h4>
+                <ul className="text-sm text-orange-700 space-y-1">
+                  {labConflicts.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       )}
       
@@ -878,7 +945,7 @@ export default function App() {
         
         <div className="flex flex-col items-center gap-12">
           <Button 
-            onClick={() => exportFullWorkbook(groups)} 
+            onClick={() => exportFullWorkbook(groups, totalLabs)} 
             className="px-12 py-5 text-lg rounded-[24px] shadow-xl shadow-black/10"
             icon={Download}
           >

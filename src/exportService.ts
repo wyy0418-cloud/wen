@@ -30,21 +30,22 @@ const sortStudents = (students: Student[]) => {
   });
 };
 
-export const exportFullWorkbook = async (groups: CombinedClassGroup[]) => {
+export const exportFullWorkbook = async (groups: CombinedClassGroup[], totalLabs: number = 10) => {
   const workbook = new ExcelJS.Workbook();
+  const totalCols = 5 + totalLabs;
 
   // ==========================================================================
   // Sheet 1: 教师教室表 (排课矩阵)
   // ==========================================================================
   const sheet1 = workbook.addWorksheet('教师教室表');
-  sheet1.mergeCells('A1:O1');
+  sheet1.mergeCells(1, 1, 1, totalCols);
   const s1Title = sheet1.getCell('A1');
   s1Title.value = '实验课教师教室安排表';
   s1Title.font = { size: 14, bold: true };
   applyDefaultStyle(s1Title);
 
   const s1Headers = ['星期', '节次', '周次', '学科', '班级'];
-  for (let i = 10; i >= 1; i--) s1Headers.push(`实验室${i}`);
+  for (let i = totalLabs; i >= 1; i--) s1Headers.push(`实验室${i}`);
   const s1HeaderRow = sheet1.addRow(s1Headers);
   s1HeaderRow.eachCell((cell) => {
     cell.font = { bold: true };
@@ -73,7 +74,7 @@ export const exportFullWorkbook = async (groups: CombinedClassGroup[]) => {
       classInfo
     ];
 
-    for (let i = 10; i >= 1; i--) {
+    for (let i = totalLabs; i >= 1; i--) {
       const labName = `实验室${i}`;
       const assignment = group.assignments.find(a => a.labName === labName);
       rowData.push(assignment ? assignment.teacherName : '');
@@ -99,7 +100,7 @@ export const exportFullWorkbook = async (groups: CombinedClassGroup[]) => {
 
   sheet1.getColumn(4).width = 20;
   sheet1.getColumn(5).width = 35;
-  for (let i = 6; i <= 15; i++) sheet1.getColumn(i).width = 12;
+  for (let i = 6; i <= 5 + totalLabs; i++) sheet1.getColumn(i).width = 12;
 
 
   // ==========================================================================

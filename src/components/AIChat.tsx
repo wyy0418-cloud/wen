@@ -25,7 +25,8 @@ export const AIChat = ({ onClose }: { onClose: () => void }) => {
     groups, setGroups,
     teachers, setTeachers,
     students, setStudents,
-    courses, setStep
+    courses, setStep,
+    totalLabs, setTotalLabs
   } = useStore();
 
   const [input, setInput] = useState('');
@@ -122,6 +123,7 @@ export const AIChat = ({ onClose }: { onClose: () => void }) => {
 - 步骤: ${useStore.getState().step}
 - 学生总数: ${students.length}
 - 教师总数: ${teachers.length}
+- 实验室总数: ${totalLabs}
 - 合班组数: ${groups.length}
 - 课程列表: ${courses.join(', ')}
 - 当前排课详情:
@@ -136,8 +138,11 @@ ${groups.map(g => `  * 课程: ${g.courseName}, 班级: ${g.classNames.join('+')
 3. { "action": "update_split", "courseName": "...", "numLabs": 2, "baseCapacity": 30 } - 更新课程的拆分设置
 4. { "action": "jump_to_step", "step": 1-6 } - 跳转到特定步骤
 5. { "action": "batch_teachers", "teacherNames": ["...", "..."] } - 批量添加教师名单
+6. { "action": "update_total_labs", "count": 12 } - 更新实验室总数
 
-请根据用户的自然语言指令和上传的文件内容，决定是否需要执行操作。`;
+请根据用户的自然语言指令和上传的文件内容，决定是否需要执行操作。
+注意：你可以一次性返回多个 JSON 块来执行多个操作。
+如果你修改了数据，请在回复中明确告知用户你做了哪些改动。`;
 
       const messages = [
         { role: 'system', content: systemInstruction },
@@ -218,6 +223,9 @@ ${groups.map(g => `  * 课程: ${g.courseName}, 班级: ${g.classNames.join('+')
             } else if (action.action === 'batch_teachers') {
               const newTeachers = action.teacherNames.map((name: string) => ({ name }));
               setTeachers(newTeachers);
+              executedActions = true;
+            } else if (action.action === 'update_total_labs') {
+              setTotalLabs(action.count);
               executedActions = true;
             }
           } catch (e) {

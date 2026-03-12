@@ -8,6 +8,7 @@ interface AppState {
   teachers: Teacher[];
   groups: CombinedClassGroup[];
   courses: string[];
+  totalLabs: number;
   
   // AI Settings (Not persisted)
   aiApiKey: string;
@@ -22,9 +23,11 @@ interface AppState {
   
   addCourse: (courseName: string) => void;
   addGroup: (group: CombinedClassGroup) => void;
+  batchAddGroups: (groups: CombinedClassGroup[]) => void;
   updateGroup: (id: string, updates: Partial<CombinedClassGroup>) => void;
   removeGroup: (id: string) => void;
   
+  setTotalLabs: (count: number) => void;
   resetSystem: () => void;
   loadState: (state: Partial<AppState>) => void;
 
@@ -44,6 +47,7 @@ export const useStore = create<AppState>()(
       teachers: [],
       groups: [],
       courses: [],
+      totalLabs: 10,
 
       aiApiKey: '',
       aiBaseUrl: 'https://api.openai.com/v1',
@@ -68,6 +72,12 @@ export const useStore = create<AppState>()(
         get().addCourse(group.courseName);
       },
 
+      batchAddGroups: (newGroups) => {
+        const { groups } = get();
+        set({ groups: [...groups, ...newGroups] });
+        newGroups.forEach(g => get().addCourse(g.courseName));
+      },
+
       updateGroup: (id, updates) => {
         const { groups } = get();
         const newGroups = groups.map((g) => (g.id === id ? { ...g, ...updates } : g));
@@ -81,6 +91,8 @@ export const useStore = create<AppState>()(
         const { groups } = get();
         set({ groups: groups.filter((g) => g.id !== id) });
       },
+
+      setTotalLabs: (totalLabs) => set({ totalLabs }),
 
       loadState: (newState) => {
         set((state) => ({
@@ -115,6 +127,7 @@ export const useStore = create<AppState>()(
           teachers: [],
           groups: [],
           courses: [],
+          totalLabs: 10,
         });
         
         // Hard reload to ensure all local state is wiped
